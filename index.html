@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TELCOTEC - Optimizador de Corte de Cables</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; text-align: center; }
+    .header h1 { font-size: 3rem; letter-spacing: 3px; margin-bottom: 10px; }
+    .header h2 { font-size: 1.5rem; font-weight: 400; opacity: 0.95; }
+    .content { padding: 40px; }
+    .section { margin-bottom: 30px; padding: 25px; background: #f8f9fa; border-radius: 12px; border: 2px solid #e9ecef; }
+    .section-title { font-size: 1.3rem; font-weight: 600; margin-bottom: 20px; color: #495057; }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
+    .form-group { display: flex; flex-direction: column; }
+    label { font-weight: 600; margin-bottom: 8px; color: #495057; font-size: 0.95rem; }
+    input[type="text"], input[type="number"] { padding: 12px 16px; border: 2px solid #ced4da; border-radius: 8px; font-size: 1rem; transition: all 0.3s; }
+    input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+    .cable-item { display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; padding: 15px; background: white; border-radius: 8px; margin-bottom: 10px; border: 2px solid #e9ecef; }
+    .btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px; justify-content: center; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+    .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; padding: 16px; font-size: 1.1rem; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-success:hover { background: #218838; }
+    .btn-danger { background: #dc3545; color: white; padding: 10px; }
+    .btn-danger:disabled { background: #e9ecef; color: #6c757d; cursor: not-allowed; opacity: 0.5; }
+    .results { margin-top: 40px; }
+    .summary-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+    .summary-item { text-align: center; }
+    .summary-label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 5px; }
+    .summary-value { font-size: 2.5rem; font-weight: bold; }
+    .info-note { background: #e7f3ff; border-left: 4px solid #0066cc; padding: 15px; margin-top: 20px; border-radius: 8px; font-size: 0.9rem; color: #333; }
+    .reel-card { background: white; border: 2px solid #e9ecef; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .reel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 2px solid #667eea; }
+    .reel-number { font-size: 1.3rem; font-weight: bold; color: #667eea; }
+    .reel-utilization { font-size: 1.1rem; color: #28a745; font-weight: 600; }
+    .cuts-container { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+    .cut-badge { background: #e7f3ff; color: #0066cc; padding: 10px 16px; border-radius: 20px; font-weight: 600; border: 2px solid #b3d9ff; }
+    .reel-footer { display: flex; justify-content: space-between; padding-top: 15px; border-top: 1px solid #e9ecef; font-size: 0.95rem; }
+    .reel-total { color: #28a745; font-weight: 600; }
+    .reel-waste { color: #dc3545; font-weight: 700; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>TELCOTEC</h1>
+      <h2>Optimizador de Corte de Cables de Fibra Óptica</h2>
+    </div>
+
+    <div class="content">
+      <div class="section">
+        <div class="section-title">📋 Información del Pedido</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>N° de Venta *</label>
+            <input type="text" id="saleNumber" placeholder="Ej: V-2024-001">
+          </div>
+          <div class="form-group">
+            <label>Cliente *</label>
+            <input type="text" id="clientName" placeholder="Nombre del cliente">
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">📏 Configuración del Carrete</div>
+        <div class="form-group">
+          <label>Longitud del Carrete (metros)</label>
+          <input type="number" id="reelLength" value="305" min="1" step="0.1">
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">🔌 Cables del Pedido</div>
+        <div id="cablesContainer"></div>
+        <button class="btn btn-success" onclick="agregarCable()">➕ Agregar Cable</button>
+      </div>
+
+      <button class="btn btn-primary" onclick="optimizar()">🎯 Optimizar Corte de Cables</button>
+
+      <div id="resultados" class="results hidden">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+          <button class="btn btn-success" onclick="imprimir()">🖨️ Imprimir Orden</button>
+        </div>
+
+        <div class="summary-box">
+          <h3 style="margin-bottom: 10px;">📊 Resultados</h3>
+          <div style="border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 15px; margin-bottom: 15px;">
+            <strong>N° Venta:</strong> <span id="resSale"></span> | <strong>Cliente:</strong> <span id="resClient"></span>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-label">Carretes</div>
+              <div class="summary-value" id="resReels">0</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Desperdicio</div>
+              <div class="summary-value" id="resWaste">0m</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Utilización</div>
+              <div class="summary-value" id="resUtil">0%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-note">
+          <strong>💡 Sobre la Utilización:</strong> Indica el porcentaje de cable usado en cada carrete. Mayor utilización = menos desperdicio.
+        </div>
+
+        <div class="section-title">📦 Detalle por Carrete</div>
+        <div id="carretesContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var cables = [];
+    var resultado = null;
+    var pedidoCables = [];
+
+    function agregarCable() {
+      var id = Date.now();
+      cables.push({id: id, largo: '', cant: ''});
+      mostrarCables();
+    }
+
+    function quitarCable(id) {
+      if (cables.length === 1) return;
+      var nuevos = [];
+      for (var i = 0; i < cables.length; i++) {
+        if (cables[i].id !== id) {
+          nuevos.push(cables[i]);
+        }
+      }
+      cables = nuevos;
+      mostrarCables();
+    }
+
+    function mostrarCables() {
+      var container = document.getElementById('cablesContainer');
+      var html = '';
+      for (var i = 0; i < cables.length; i++) {
+        var c = cables[i];
+        html = html + '<div class="cable-item">';
+        html = html + '<div class="form-group">';
+        html = html + '<label>Longitud (m)</label>';
+        html = html + '<input type="number" value="' + (c.largo === '' ? '' : c.largo) + '" ';
+        html = html + 'oninput="cables[' + i + '].largo = parseFloat(this.value) || 0" ';
+        html = html + 'placeholder="Ej: 250" min="0" step="0.1">';
+        html = html + '</div>';
+        html = html + '<div class="form-group">';
+        html = html + '<label>Cantidad</label>';
+        html = html + '<input type="number" value="' + (c.cant === '' ? '' : c.cant) + '" ';
+        html = html + 'oninput="cables[' + i + '].cant = parseInt(this.value) || 0" ';
+        html = html + 'placeholder="Ej: 5" min="0">';
+        html = html + '</div>';
+        html = html + '<div style="display: flex; align-items: flex-end;">';
+        html = html + '<button class="btn btn-danger" onclick="quitarCable(' + c.id + ')" ';
+        html = html + (cables.length === 1 ? 'disabled' : '') + '>🗑️</button>';
+        html = html + '</div></div>';
+      }
+      container.innerHTML = html;
+    }
+
+    function optimizar() {
+      var venta = document.getElementById('saleNumber').value.trim();
+      var cliente = document.getElementById('clientName').value.trim();
+      var largoCarrete = parseFloat(document.getElementById('reelLength').value) || 0;
+
+      if (!venta || !cliente) {
+        alert('Por favor ingresa N° de Venta y Cliente');
+        return;
+      }
+
+      var validos = [];
+      for (var x = 0; x < cables.length; x++) {
+        if (cables[x].largo > 0 && cables[x].cant > 0) {
+          validos.push(cables[x]);
+        }
+      }
+
+      if (validos.length === 0 || largoCarrete <= 0) {
+        alert('Por favor ingresa cables válidos');
+        return;
+      }
+
+      pedidoCables = validos;
+
+      var cortes = [];
+      for (var i = 0; i < validos.length; i++) {
+        for (var j = 0; j < validos[i].cant; j++) {
+          cortes.push(validos[i].largo);
+        }
+      }
+      
+      cortes.sort(function(a, b) { return b - a; });
+
+      var carretes = [];
+      for (var k = 0; k < cortes.length; k++) {
+        var corteLargo = cortes[k];
+        var colocado = false;
+        
+        for (var m = 0; m < carretes.length; m++) {
+          if (carretes[m].sobrante >= corteLargo) {
+            carretes[m].cortes.push(corteLargo);
+            carretes[m].sobrante = carretes[m].sobrante - corteLargo;
+            var usado = largoCarrete - carretes[m].sobrante;
+            carretes[m].util = ((usado / largoCarrete) * 100).toFixed(1);
+            colocado = true;
+            break;
+          }
+        }
+        
+        if (!colocado) {
+          carretes.push({
+            cortes: [corteLargo],
+            sobrante: largoCarrete - corteLargo,
+            util: ((corteLargo / largoCarrete) * 100).toFixed(1)
+          });
+        }
+      }
+
+      var totalDesperdicio = 0;
+      for (var n = 0; n < carretes.length; n++) {
+        totalDesperdicio = totalDesperdicio + carretes[n].sobrante;
+      }
+      
+      var totalUsado = carretes.length * largoCarrete - totalDesperdicio;
+      var utilProm = ((totalUsado / (carretes.length * largoCarrete)) * 100).toFixed(1);
+
+      resultado = {
+        carretes: carretes,
+        totalCarretes: carretes.length,
+        totalDesperdicio: totalDesperdicio,
+        utilProm: utilProm,
+        venta: venta,
+        cliente: cliente,
+        largoCarrete: largoCarrete,
+        fecha: new Date().toLocaleDateString('es-CL')
+      };
+
+      mostrarResultados();
+    }
+
+    function mostrarResultados() {
+      document.getElementById('resultados').classList.remove('hidden');
+      document.getElementById('resSale').textContent = resultado.venta;
+      document.getElementById('resClient').textContent = resultado.cliente;
+      document.getElementById('resReels').textContent = resultado.totalCarretes;
+      document.getElementById('resWaste').textContent = resultado.totalDesperdicio.toFixed(1) + 'm';
+      document.getElementById('resUtil').textContent = resultado.utilProm + '%';
+
+      var container = document.getElementById('carretesContainer');
+      var html = '';
+      
+      for (var i = 0; i < resultado.carretes.length; i++) {
+        var carr = resultado.carretes[i];
+        var cortesHtml = '';
+        
+        for (var j = 0; j < carr.cortes.length; j++) {
+          cortesHtml = cortesHtml + '<span class="cut-badge">' + carr.cortes[j] + 'm</span>';
+        }
+        
+        var totalCortado = resultado.largoCarrete - carr.sobrante;
+        
+        html = html + '<div class="reel-card">';
+        html = html + '<div class="reel-header">';
+        html = html + '<div class="reel-number">Carrete #' + (i + 1) + '</div>';
+        html = html + '<div class="reel-utilization">Utilización: ' + carr.util + '%</div>';
+        html = html + '</div>';
+        html = html + '<div class="cuts-container">' + cortesHtml + '</div>';
+        html = html + '<div class="reel-footer">';
+        html = html + '<div class="reel-total">Total cortado: ' + totalCortado.toFixed(1) + 'm</div>';
+        html = html + '<div class="reel-waste">Sobrante: ' + carr.sobrante.toFixed(1) + 'm</div>';
+        html = html + '</div></div>';
+      }
+      
+      container.innerHTML = html;
+      document.getElementById('resultados').scrollIntoView({behavior: 'smooth'});
+    }
+
+    function imprimir() {
+      if (!resultado) return;
+      
+      var w = window.open('', '_blank');
+      if (!w) {
+        alert('Por favor permite ventanas emergentes');
+        return;
+      }
+      
+      var pedidoHTML = generarPedidoHTML();
+      var carretesHtml = generarCarretesHTML();
+      var htmlCompleto = generarDocumentoCompleto(pedidoHTML, carretesHtml);
+      
+      w.document.write(htmlCompleto);
+      w.document.close();
+    }
+
+    function generarPedidoHTML() {
+      var html = '<div style="margin-bottom:30px;padding:20px;background:#fff3cd;border:2px solid #ffc107;border-radius:10px">';
+      html = html + '<h3 style="color:#856404;margin-bottom:15px;font-size:18px">📦 RESUMEN DEL PEDIDO</h3>';
+      html = html + '<table style="width:100%;border-collapse:collapse">';
+      html = html + '<thead><tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6">';
+      html = html + '<th style="padding:12px;text-align:left;font-size:14px;color:#495057">Longitud Cable (m)</th>';
+      html = html + '<th style="padding:12px;text-align:center;font-size:14px;color:#495057">Cantidad</th>';
+      html = html + '<th style="padding:12px;text-align:right;font-size:14px;color:#495057">Total Metros</th>';
+      html = html + '</tr></thead><tbody>';
+      
+      var totalMetros = 0;
+      var totalCables = 0;
+      
+      for (var i = 0; i < pedidoCables.length; i++) {
+        var cable = pedidoCables[i];
+        var subtotal = cable.largo * cable.cant;
+        totalMetros = totalMetros + subtotal;
+        totalCables = totalCables + cable.cant;
+        
+        html = html + '<tr style="border-bottom:1px solid #dee2e6">';
+        html = html + '<td style="padding:10px;font-size:15px">' + cable.largo + 'm</td>';
+        html = html + '<td style="padding:10px;text-align:center;font-size:15px;font-weight:600">' + cable.cant + '</td>';
+        html = html + '<td style="padding:10px;text-align:right;font-size:15px;font-weight:600;color:#0066cc">' + subtotal.toFixed(1) + 'm</td>';
+        html = html + '</tr>';
+      }
+      
+      html = html + '<tr style="background:#e7f3ff;font-weight:bold">';
+      html = html + '<td style="padding:12px;font-size:16px">TOTAL</td>';
+      html = html + '<td style="padding:12px;text-align:center;font-size:16px">' + totalCables + ' cables</td>';
+      html = html + '<td style="padding:12px;text-align:right;font-size:16px;color:#0066cc">' + totalMetros.toFixed(1) + 'm</td>';
+      html = html + '</tr>';
+      html = html + '</tbody></table></div>';
+      
+      return html;
+    }
+
+    function generarCarretesHTML() {
+      var html = '';
+      
+      for (var i = 0; i < resultado.carretes.length; i++) {
+        var c = resultado.carretes[i];
+        var cortesHtml = '';
+        
+        for (var j = 0; j < c.cortes.length; j++) {
+          cortesHtml = cortesHtml + '<div style="background:#e0e7ff;color:#3730a3;padding:10px;border-radius:8px;text-align:center;font-weight:700;border:2px solid #c7d2fe">';
+          cortesHtml = cortesHtml + c.cortes[j] + 'm</div>';
+        }
+        
+        var totalCortado = resultado.largoCarrete - c.sobrante;
+        
+        html = html + '<div style="margin-bottom:25px;border:2px solid #e5e7eb;border-radius:10px;padding:20px;page-break-inside:avoid">';
+        html = html + '<div style="display:flex;justify-content:space-between;margin-bottom:15px;padding-bottom:12px;border-bottom:2px solid #667eea">';
+        html = html + '<div style="font-size:20px;font-weight:bold;color:#667eea">CARRETE #' + (i + 1) + '</div>';
+        html = html + '<div style="font-size:16px;color:#059669;font-weight:600">Utilización: ' + c.util + '%</div>';
+        html = html + '</div>';
+        html = html + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px;margin-bottom:15px">';
+        html = html + cortesHtml + '</div>';
+        html = html + '<div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid #e5e7eb">';
+        html = html + '<div style="color:#059669;font-weight:600">Total cortado: ' + totalCortado.toFixed(1) + 'm</div>';
+        html = html + '<div style="color:#dc2626;font-weight:700">Sobrante: ' + c.sobrante.toFixed(1) + 'm</div>';
+        html = html + '</div></div>';
+      }
+      
+      return html;
+    }
+
+    function generarDocumentoCompleto(pedidoHTML, carretesHTML) {
+      var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
+      html = html + '<title>Orden de Trabajo - ' + resultado.venta + '</title>';
+      html = html + '<style>';
+      html = html + 'body{font-family:Arial,sans-serif;padding:30px;max-width:900px;margin:0 auto;color:#333}';
+      html = html + '@media print{.no-print{display:none}@page{margin:1.5cm}}';
+      html = html + '</style></head><body>';
+      html = html + '<div style="text-align:center;border-bottom:4px solid #667eea;padding-bottom:20px;margin-bottom:30px">';
+      html = html + '<div style="font-size:36px;font-weight:bold;color:#667eea;letter-spacing:2px">TELCOTEC</div>';
+      html = html + '<div style="font-size:22px;color:#1f2937;font-weight:600;margin-top:10px">ORDEN DE TRABAJO - CORTE DE CABLES</div>';
+      html = html + '</div>';
+      html = html + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:30px;padding:20px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb">';
+      html = html + '<div><div style="font-weight:600;color:#6b7280;font-size:13px;text-transform:uppercase;margin-bottom:5px">N° DE VENTA</div>';
+      html = html + '<div style="font-size:18px;font-weight:500">' + resultado.venta + '</div></div>';
+      html = html + '<div><div style="font-weight:600;color:#6b7280;font-size:13px;text-transform:uppercase;margin-bottom:5px">CLIENTE</div>';
+      html = html + '<div style="font-size:18px;font-weight:500">' + resultado.cliente + '</div></div>';
+      html = html + '<div><div style="font-weight:600;color:#6b7280;font-size:13px;text-transform:uppercase;margin-bottom:5px">FECHA</div>';
+      html = html + '<div style="font-size:18px;font-weight:500">' + resultado.fecha + '</div></div>';
+      html = html + '<div><div style="font-weight:600;color:#6b7280;font-size:13px;text-transform:uppercase;margin-bottom:5px">LONGITUD CARRETE</div>';
+      html = html + '<div style="font-size:18px;font-weight:500">' + resultado.largoCarrete + ' metros</div></div>';
+      html = html + '</div>';
+      
+      html = html + pedidoHTML;
+      
+      html = html + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:35px;padding:25px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:12px">';
+      html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">CARRETES REQUERIDOS</div>';
+      html = html + '<div style="font-size:32px;font-weight:bold">' + resultado.totalCarretes + '</div></div>';
+      html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">DESPERDICIO TOTAL</div>';
+      html = html + '<div style="font-size:32px;font-weight:bold">' + resultado.totalDesperdicio.toFixed(1) + 'm</div></div>';
+      html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">UTILIZACIÓN PROMEDIO</div>';
+      html = html + '<div style="font-size:32px;font-weight:bold">' + resultado.utilProm + '%</div></div>';
+      html = html + '</div>';
+      html = html + '<h3 style="font-size:20px;font-weight:600;color:#1f2937;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #e5e7eb">DETALLE DE CORTES POR CARRETE</h3>';
+      html = html + carretesHTML;
+      html = html + '<div style="margin-top:50px;padding-top:25px;border-top:3px solid #e5e7eb;text-align:center;color:#6b7280;font-size:13px">';
+      html = html + '<div style="font-weight:bold;color:#667eea;font-size:16px;margin-bottom:5px">TELCOTEC</div>';
+      html = html + '<div>Soluciones en Fibra Óptica y Telecomunicaciones</div>';
+      html = html + '<div style="margin-top:8px">Documento generado el ' + new Date().toLocaleString('es-CL') + '</div>';
+      html = html + '</div>';
+      html = html + '<button class="no-print" onclick="window.print()" style="background:#10b981;color:white;border:none;padding:15px 30px;font-size:16px;font-weight:600;border-radius:8px;cursor:pointer;margin:25px auto;display:block;box-shadow:0 4px 6px rgba(0,0,0,0.1)">🖨️ IMPRIMIR ORDEN DE TRABAJO</button>';
+      html = html + '</body></html>';
+      
+      return html;
+    }
+
+    agregarCable();
+  </script>
+</body>
+</html>
