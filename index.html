@@ -90,12 +90,12 @@
     <div class="header">
       <h1>TELCOTEC</h1>
       <h2>Optimizador de Corte de Cables de Fibra Óptica</h2>
-      <span class="badge-mejorado">✨ ALGORITMO MEJORADO - BEST FIT DECREASING (251209)</span>
+      <span class="badge-mejorado">✨ OPTIMIZACIÓN AVANZADA - BFD + SWAP INTELIGENTE</span>
     </div>
 
     <div class="content">
       <div class="info-note success">
-        <strong>🎯 Mejora implementada:</strong> Ahora usa el algoritmo <strong>Best Fit Decreasing (BFD)</strong> que minimiza el desperdicio máximo por carrete, optimizando mejor la distribución de cortes y reduciendo pérdidas de material.
+        <strong>🎯 Optimización Avanzada:</strong> Usa <strong>Best Fit Decreasing (BFD)</strong> con agrupación inteligente + <strong>algoritmo de intercambio (swap)</strong> que redistribuye cortes para convertir desperdicios pequeños en retazos útiles (≥20m) que pueden guardarse como stock.
       </div>
 
       <div class="section">
@@ -126,7 +126,11 @@
         <button class="btn btn-success" onclick="agregarCable()">➕ Agregar Cable</button>
       </div>
 
-      <button class="btn btn-primary" onclick="optimizar()">🎯 Optimizar Corte de Cables</button>
+      <button class="btn btn-primary" onclick="optimizarAvanzado()">🎯 Optimizar Corte de Cables (Avanzado)</button>
+
+      <div class="info-note success" style="margin-top: 15px;">
+        <strong>🚀 Modo Avanzado Activado:</strong> Incluye optimización con intercambio inteligente. Los retazos mayores a <strong>20 metros</strong> se consideran útiles para stock futuro, los menores son desperdicio real.
+      </div>
 
       <div id="resultados" class="results hidden">
         <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
@@ -144,18 +148,22 @@
               <div class="summary-value" id="resReels">0</div>
             </div>
             <div class="summary-item">
-              <div class="summary-label">Desperdicio</div>
+              <div class="summary-label">Desperdicio Real</div>
               <div class="summary-value" id="resWaste">0m</div>
             </div>
             <div class="summary-item">
-              <div class="summary-label">Utilización</div>
-              <div class="summary-value" id="resUtil">0%</div>
+              <div class="summary-label">Retazos Útiles</div>
+              <div class="summary-value" style="color: #10b981;" id="resRetazos">0m</div>
             </div>
           </div>
         </div>
 
         <div class="info-note">
-          <strong>💡 Sobre la Utilización:</strong> Indica el porcentaje de cable usado en cada carrete. Mayor utilización = menos desperdicio. El algoritmo BFD busca minimizar el desperdicio máximo de cada carrete.
+          <strong>💡 Sobre la Optimización:</strong><br>
+          • <strong>Desperdicio Real:</strong> Sobrantes menores a 20m (difíciles de reutilizar)<br>
+          • <strong>Retazos Útiles 📦:</strong> Sobrantes mayores a 20m (guardar como stock para pedidos futuros)<br>
+          • Los carretes con retazos útiles están marcados con 📦<br>
+          • Los carretes óptimos (desperdicio mínimo) están marcados con ✨
         </div>
 
         <div class="section-title">📦 Detalle por Carrete</div>
@@ -381,7 +389,12 @@
       document.getElementById('resClient').textContent = resultado.cliente;
       document.getElementById('resReels').textContent = resultado.totalCarretes;
       document.getElementById('resWaste').textContent = resultado.totalDesperdicio.toFixed(1) + 'm';
-      document.getElementById('resUtil').textContent = resultado.utilProm + '%';
+      
+      // Mostrar retazos útiles si existen
+      var retazosElement = document.getElementById('resRetazos');
+      if (retazosElement) {
+        retazosElement.textContent = (resultado.totalRetazoUtil || 0).toFixed(1) + 'm';
+      }
 
       var container = document.getElementById('carretesContainer');
       var html = '';
@@ -395,17 +408,24 @@
         }
         
         var totalCortado = resultado.largoCarrete - carr.sobrante;
-        var isOptimal = carr.sobrante <= 10; // Considerar óptimo si desperdicio <= 10m
+        var isOptimal = carr.sobrante <= umbralRetazoUtil; // Usar el umbral configurado
+        var esRetazoUtil = carr.sobrante >= umbralRetazoUtil;
         
         html = html + '<div class="reel-card' + (isOptimal ? ' optimal' : '') + '">';
         html = html + '<div class="reel-header">';
-        html = html + '<div class="reel-number">Carrete #' + (i + 1) + (isOptimal ? ' ✨' : '') + '</div>';
+        html = html + '<div class="reel-number">Carrete #' + (i + 1) + (isOptimal ? ' ✨' : '') + (esRetazoUtil ? ' 📦' : '') + '</div>';
         html = html + '<div class="reel-utilization">Utilización: ' + carr.util + '%</div>';
         html = html + '</div>';
         html = html + '<div class="cuts-container">' + cortesHtml + '</div>';
         html = html + '<div class="reel-footer">';
         html = html + '<div class="reel-total">Total cortado: ' + totalCortado.toFixed(1) + 'm</div>';
-        html = html + '<div class="reel-waste' + (isOptimal ? ' low' : '') + '">Sobrante: ' + carr.sobrante.toFixed(1) + 'm</div>';
+        
+        if (esRetazoUtil) {
+          html = html + '<div class="reel-waste low">Retazo útil: ' + carr.sobrante.toFixed(1) + 'm (guardar para stock)</div>';
+        } else {
+          html = html + '<div class="reel-waste' + (isOptimal ? ' low' : '') + '">Sobrante: ' + carr.sobrante.toFixed(1) + 'm</div>';
+        }
+        
         html = html + '</div></div>';
       }
       
@@ -479,18 +499,25 @@
         }
         
         var totalCortado = resultado.largoCarrete - c.sobrante;
-        var isOptimal = c.sobrante <= 10;
+        var isOptimal = c.sobrante <= umbralRetazoUtil;
+        var esRetazoUtil = c.sobrante >= umbralRetazoUtil;
         
         html = html + '<div style="margin-bottom:25px;border:2px solid ' + (isOptimal ? '#10b981' : '#e5e7eb') + ';border-radius:10px;padding:20px;page-break-inside:avoid;background:' + (isOptimal ? '#f0fdf4' : 'white') + '">';
         html = html + '<div style="display:flex;justify-content:space-between;margin-bottom:15px;padding-bottom:12px;border-bottom:2px solid #667eea">';
-        html = html + '<div style="font-size:20px;font-weight:bold;color:#667eea">CARRETE #' + (i + 1) + (isOptimal ? ' ✨' : '') + '</div>';
+        html = html + '<div style="font-size:20px;font-weight:bold;color:#667eea">CARRETE #' + (i + 1) + (isOptimal ? ' ✨' : '') + (esRetazoUtil ? ' 📦' : '') + '</div>';
         html = html + '<div style="font-size:16px;color:#059669;font-weight:600">Utilización: ' + c.util + '%</div>';
         html = html + '</div>';
         html = html + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px;margin-bottom:15px">';
         html = html + cortesHtml + '</div>';
         html = html + '<div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid #e5e7eb">';
         html = html + '<div style="color:#059669;font-weight:600">Total cortado: ' + totalCortado.toFixed(1) + 'm</div>';
-        html = html + '<div style="color:' + (isOptimal ? '#10b981' : '#dc2626') + ';font-weight:700">Sobrante: ' + c.sobrante.toFixed(1) + 'm</div>';
+        
+        if (esRetazoUtil) {
+          html = html + '<div style="color:#10b981;font-weight:700;background:#d1fae5;padding:8px 12px;border-radius:6px">📦 RETAZO ÚTIL: ' + c.sobrante.toFixed(1) + 'm (guardar stock)</div>';
+        } else {
+          html = html + '<div style="color:' + (isOptimal ? '#10b981' : '#dc2626') + ';font-weight:700">Sobrante: ' + c.sobrante.toFixed(1) + 'm</div>';
+        }
+        
         html = html + '</div></div>';
       }
       
@@ -522,13 +549,15 @@
       
       html = html + pedidoHTML;
       
-      html = html + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:35px;padding:25px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:12px">';
+      html = html + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:35px;padding:25px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:12px">';
       html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">CARRETES REQUERIDOS</div>';
       html = html + '<div style="font-size:32px;font-weight:bold">' + resultado.totalCarretes + '</div></div>';
-      html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">DESPERDICIO TOTAL</div>';
+      html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">DESPERDICIO REAL</div>';
       html = html + '<div style="font-size:32px;font-weight:bold">' + resultado.totalDesperdicio.toFixed(1) + 'm</div></div>';
-      html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">UTILIZACIÓN PROMEDIO</div>';
-      html = html + '<div style="font-size:32px;font-weight:bold">' + resultado.utilProm + '%</div></div>';
+      html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">RETAZOS ÚTILES</div>';
+      html = html + '<div style="font-size:32px;font-weight:bold;color:#10b981">' + (resultado.totalRetazoUtil || 0).toFixed(1) + 'm</div></div>';
+      html = html + '<div style="text-align:center"><div style="font-size:13px;opacity:0.95;margin-bottom:8px">TOTAL SOBRANTE</div>';
+      html = html + '<div style="font-size:32px;font-weight:bold">' + (resultado.desperdicioOriginal || resultado.totalDesperdicio).toFixed(1) + 'm</div></div>';
       html = html + '</div>';
       html = html + '<h3 style="font-size:20px;font-weight:600;color:#1f2937;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #e5e7eb">DETALLE DE CORTES POR CARRETE</h3>';
       html = html + carretesHtml;
@@ -541,6 +570,130 @@
       html = html + '</body></html>';
       
       return html;
+    }
+
+    // CONFIGURACIÓN: Umbral para considerar un retazo como "útil"
+    var umbralRetazoUtil = 20; // metros
+
+    // ALGORITMO AVANZADO: Optimización con intercambio inteligente
+    function optimizarAvanzado() {
+      // Paso 1: Ejecutar el algoritmo base (BFD con agrupación)
+      optimizar();
+      
+      if (!resultado || !resultado.carretes) return;
+      
+      // Paso 2: Post-procesamiento con intercambio inteligente
+      var carretes = resultado.carretes;
+      var mejora = true;
+      var iteraciones = 0;
+      var maxIteraciones = 50;
+      
+      while (mejora && iteraciones < maxIteraciones) {
+        mejora = false;
+        
+        // Buscar carretes con desperdicio "malo" (entre 0.5m y umbral)
+        for (var i = 0; i < carretes.length; i++) {
+          var sobranteI = carretes[i].sobrante;
+          
+          // Si este carrete tiene desperdicio recuperable
+          if (sobranteI > 0.5 && sobranteI < umbralRetazoUtil) {
+            
+            // Buscar en otros carretes un corte que quepa aquí
+            for (var j = 0; j < carretes.length; j++) {
+              if (i === j) continue;
+              
+              // Solo intentar si el carrete J tiene más de 1 corte
+              if (carretes[j].cortes.length <= 1) continue;
+              
+              // Buscar el corte más pequeño de J que quepa en I
+              for (var k = 0; k < carretes[j].cortes.length; k++) {
+                var corteCandidato = carretes[j].cortes[k];
+                
+                // Verificar que el corte quepa Y que mejore la situación
+                if (corteCandidato <= sobranteI) {
+                  var nuevoSobranteI = sobranteI - corteCandidato;
+                  var nuevoSobranteJ = carretes[j].sobrante + corteCandidato;
+                  
+                  // VALIDACIÓN: Solo hacer el swap si mejora el resultado
+                  // Queremos reducir desperdicios pequeños o aumentar retazos útiles
+                  var mejoraLocal = false;
+                  
+                  // Caso 1: El nuevo sobrante de I es más pequeño (más cerca de 0)
+                  if (nuevoSobranteI < sobranteI && nuevoSobranteI < umbralRetazoUtil) {
+                    mejoraLocal = true;
+                  }
+                  
+                  // Caso 2: El nuevo sobrante de J pasa a ser útil (>umbral)
+                  if (carretes[j].sobrante < umbralRetazoUtil && nuevoSobranteJ >= umbralRetazoUtil) {
+                    mejoraLocal = true;
+                  }
+                  
+                  if (mejoraLocal) {
+                    // Hacer el intercambio
+                    carretes[i].cortes.push(corteCandidato);
+                    carretes[i].sobrante = nuevoSobranteI;
+                    
+                    carretes[j].cortes.splice(k, 1);
+                    carretes[j].sobrante = nuevoSobranteJ;
+                    
+                    // Recalcular utilización
+                    actualizarUtil(carretes[i]);
+                    actualizarUtil(carretes[j]);
+                    
+                    mejora = true;
+                    break;
+                  }
+                }
+              }
+              if (mejora) break;
+            }
+            if (mejora) break;
+          }
+        }
+        iteraciones++;
+      }
+      
+      // Filtrar carretes vacíos (si logramos vaciar alguno)
+      var carretesNoVacios = [];
+      for (var c = 0; c < carretes.length; c++) {
+        if (carretes[c].cortes.length > 0) {
+          carretesNoVacios.push(carretes[c]);
+        }
+      }
+      resultado.carretes = carretesNoVacios;
+      resultado.totalCarretes = carretesNoVacios.length;
+      
+      // Recalcular totales con distinción de retazos útiles
+      recalcularTotalesFinancieros();
+      mostrarResultados();
+    }
+    
+    function actualizarUtil(carr) {
+      var largoCarrete = parseFloat(document.getElementById('reelLength').value) || 0;
+      var usado = largoCarrete - carr.sobrante;
+      carr.util = ((usado / largoCarrete) * 100).toFixed(1);
+    }
+    
+    function recalcularTotalesFinancieros() {
+      var totalDesperdicioReal = 0;
+      var totalRetazoUtil = 0;
+      
+      for (var c = 0; c < resultado.carretes.length; c++) {
+        if (resultado.carretes[c].sobrante < umbralRetazoUtil) {
+          totalDesperdicioReal += resultado.carretes[c].sobrante;
+        } else {
+          totalRetazoUtil += resultado.carretes[c].sobrante;
+        }
+      }
+      
+      resultado.totalDesperdicio = totalDesperdicioReal;
+      resultado.totalRetazoUtil = totalRetazoUtil;
+      resultado.desperdicioOriginal = totalDesperdicioReal + totalRetazoUtil;
+      
+      // Recalcular utilización considerando solo desperdicio real
+      var totalCable = resultado.totalCarretes * resultado.largoCarrete;
+      var totalUsado = totalCable - resultado.desperdicioOriginal;
+      resultado.utilProm = ((totalUsado / totalCable) * 100).toFixed(1);
     }
 
     agregarCable();
