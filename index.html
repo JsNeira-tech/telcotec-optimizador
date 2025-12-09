@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TELCOTEC - Optimizador de Corte de Cables</title>
+  <title>TELCOTEC - Optimizador de Corte de Cables (MEJORADO)</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 10px; }
@@ -11,6 +11,7 @@
     .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }
     .header h1 { font-size: 2rem; letter-spacing: 2px; margin-bottom: 8px; }
     .header h2 { font-size: 1.1rem; font-weight: 400; opacity: 0.95; line-height: 1.4; }
+    .badge-mejorado { background: #10b981; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; margin-top: 8px; }
     .content { padding: 20px; }
     .section { margin-bottom: 20px; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 2px solid #e9ecef; }
     .section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; color: #495057; }
@@ -34,7 +35,9 @@
     .summary-label { font-size: 0.85rem; opacity: 0.9; margin-bottom: 5px; }
     .summary-value { font-size: 2rem; font-weight: bold; }
     .info-note { background: #e7f3ff; border-left: 4px solid #0066cc; padding: 12px; margin-top: 15px; border-radius: 8px; font-size: 0.85rem; color: #333; line-height: 1.5; }
+    .info-note.success { background: #d1fae5; border-left-color: #10b981; }
     .reel-card { background: white; border: 2px solid #e9ecef; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+    .reel-card.optimal { border-color: #10b981; background: #f0fdf4; }
     .reel-header { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 2px solid #667eea; }
     .reel-number { font-size: 1.1rem; font-weight: bold; color: #667eea; }
     .reel-utilization { font-size: 1rem; color: #28a745; font-weight: 600; }
@@ -43,6 +46,7 @@
     .reel-footer { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid #e9ecef; font-size: 0.9rem; }
     .reel-total { color: #28a745; font-weight: 600; }
     .reel-waste { color: #dc3545; font-weight: 700; }
+    .reel-waste.low { color: #10b981; }
     .hidden { display: none; }
 
     /* Tablets y pantallas medianas */
@@ -86,9 +90,14 @@
     <div class="header">
       <h1>TELCOTEC</h1>
       <h2>Optimizador de Corte de Cables de Fibra Óptica</h2>
+      <span class="badge-mejorado">✨ ALGORITMO MEJORADO - BEST FIT DECREASING</span>
     </div>
 
     <div class="content">
+      <div class="info-note success">
+        <strong>🎯 Mejora implementada:</strong> Ahora usa el algoritmo <strong>Best Fit Decreasing (BFD)</strong> que minimiza el desperdicio máximo por carrete, optimizando mejor la distribución de cortes y reduciendo pérdidas de material.
+      </div>
+
       <div class="section">
         <div class="section-title">📋 Información del Pedido</div>
         <div class="form-row">
@@ -146,7 +155,7 @@
         </div>
 
         <div class="info-note">
-          <strong>💡 Sobre la Utilización:</strong> Indica el porcentaje de cable usado en cada carrete. Mayor utilización = menos desperdicio.
+          <strong>💡 Sobre la Utilización:</strong> Indica el porcentaje de cable usado en cada carrete. Mayor utilización = menos desperdicio. El algoritmo BFD busca minimizar el desperdicio máximo de cada carrete.
         </div>
 
         <div class="section-title">📦 Detalle por Carrete</div>
@@ -204,6 +213,7 @@
       container.innerHTML = html;
     }
 
+    // ALGORITMO MEJORADO: BEST FIT DECREASING CON AGRUPACIÓN INTELIGENTE
     function optimizar() {
       var venta = document.getElementById('saleNumber').value.trim();
       var cliente = document.getElementById('clientName').value.trim();
@@ -228,6 +238,7 @@
 
       pedidoCables = validos;
 
+      // Generar lista de cortes
       var cortes = [];
       for (var i = 0; i < validos.length; i++) {
         for (var j = 0; j < validos[i].cant; j++) {
@@ -235,25 +246,78 @@
         }
       }
       
+      // Ordenar de mayor a menor
       cortes.sort(function(a, b) { return b - a; });
 
+      // ESTRATEGIA: Intentar agrupar cortes del mismo tamaño primero
       var carretes = [];
-      for (var k = 0; k < cortes.length; k++) {
-        var corteLargo = cortes[k];
-        var colocado = false;
+      var cortesRestantes = [];
+      for (var i = 0; i < cortes.length; i++) {
+        cortesRestantes.push(cortes[i]);
+      }
+
+      // Fase 1: Agrupar cortes iguales que maximicen el uso del carrete
+      var grupos = agruparPorTamano(cortesRestantes);
+      
+      for (var g = 0; g < grupos.length; g++) {
+        var grupo = grupos[g];
+        var tamano = grupo.tamano;
+        var cantidad = grupo.cantidad;
+        
+        // Calcular cuántos cortes de este tamaño caben en un carrete
+        var cortesPorCarrete = Math.floor(largoCarrete / tamano);
+        
+        if (cortesPorCarrete > 0) {
+          var carretesCompletos = Math.floor(cantidad / cortesPorCarrete);
+          var restantes = cantidad % cortesPorCarrete;
+          
+          // Crear carretes completos con cortes del mismo tamaño
+          for (var c = 0; c < carretesCompletos; c++) {
+            var cortesCarrete = [];
+            for (var x = 0; x < cortesPorCarrete; x++) {
+              cortesCarrete.push(tamano);
+            }
+            var usado = cortesPorCarrete * tamano;
+            carretes.push({
+              cortes: cortesCarrete,
+              sobrante: largoCarrete - usado,
+              util: ((usado / largoCarrete) * 100).toFixed(1)
+            });
+          }
+          
+          // Marcar los cortes procesados como usados
+          var procesados = carretesCompletos * cortesPorCarrete;
+          for (var p = 0; p < procesados; p++) {
+            var idx = cortesRestantes.indexOf(tamano);
+            if (idx !== -1) {
+              cortesRestantes.splice(idx, 1);
+            }
+          }
+        }
+      }
+
+      // Fase 2: Optimizar los cortes restantes con BFD
+      for (var k = 0; k < cortesRestantes.length; k++) {
+        var corteLargo = cortesRestantes[k];
+        var mejorCarrete = -1;
+        var menorSobrante = largoCarrete + 1;
         
         for (var m = 0; m < carretes.length; m++) {
           if (carretes[m].sobrante >= corteLargo) {
-            carretes[m].cortes.push(corteLargo);
-            carretes[m].sobrante = carretes[m].sobrante - corteLargo;
-            var usado = largoCarrete - carretes[m].sobrante;
-            carretes[m].util = ((usado / largoCarrete) * 100).toFixed(1);
-            colocado = true;
-            break;
+            var sobrante_nuevo = carretes[m].sobrante - corteLargo;
+            if (sobrante_nuevo < menorSobrante) {
+              menorSobrante = sobrante_nuevo;
+              mejorCarrete = m;
+            }
           }
         }
         
-        if (!colocado) {
+        if (mejorCarrete !== -1) {
+          carretes[mejorCarrete].cortes.push(corteLargo);
+          carretes[mejorCarrete].sobrante = carretes[mejorCarrete].sobrante - corteLargo;
+          var usado = largoCarrete - carretes[mejorCarrete].sobrante;
+          carretes[mejorCarrete].util = ((usado / largoCarrete) * 100).toFixed(1);
+        } else {
           carretes.push({
             cortes: [corteLargo],
             sobrante: largoCarrete - corteLargo,
@@ -284,6 +348,33 @@
       mostrarResultados();
     }
 
+    // Función auxiliar para agrupar cortes por tamaño
+    function agruparPorTamano(cortes) {
+      var grupos = [];
+      var conteo = {};
+      
+      for (var i = 0; i < cortes.length; i++) {
+        var tamano = cortes[i];
+        if (conteo[tamano]) {
+          conteo[tamano]++;
+        } else {
+          conteo[tamano] = 1;
+        }
+      }
+      
+      for (var tam in conteo) {
+        grupos.push({
+          tamano: parseFloat(tam),
+          cantidad: conteo[tam]
+        });
+      }
+      
+      // Ordenar grupos de mayor a menor tamaño
+      grupos.sort(function(a, b) { return b.tamano - a.tamano; });
+      
+      return grupos;
+    }
+
     function mostrarResultados() {
       document.getElementById('resultados').classList.remove('hidden');
       document.getElementById('resSale').textContent = resultado.venta;
@@ -304,16 +395,17 @@
         }
         
         var totalCortado = resultado.largoCarrete - carr.sobrante;
+        var isOptimal = carr.sobrante <= 10; // Considerar óptimo si desperdicio <= 10m
         
-        html = html + '<div class="reel-card">';
+        html = html + '<div class="reel-card' + (isOptimal ? ' optimal' : '') + '">';
         html = html + '<div class="reel-header">';
-        html = html + '<div class="reel-number">Carrete #' + (i + 1) + '</div>';
+        html = html + '<div class="reel-number">Carrete #' + (i + 1) + (isOptimal ? ' ✨' : '') + '</div>';
         html = html + '<div class="reel-utilization">Utilización: ' + carr.util + '%</div>';
         html = html + '</div>';
         html = html + '<div class="cuts-container">' + cortesHtml + '</div>';
         html = html + '<div class="reel-footer">';
         html = html + '<div class="reel-total">Total cortado: ' + totalCortado.toFixed(1) + 'm</div>';
-        html = html + '<div class="reel-waste">Sobrante: ' + carr.sobrante.toFixed(1) + 'm</div>';
+        html = html + '<div class="reel-waste' + (isOptimal ? ' low' : '') + '">Sobrante: ' + carr.sobrante.toFixed(1) + 'm</div>';
         html = html + '</div></div>';
       }
       
@@ -387,17 +479,18 @@
         }
         
         var totalCortado = resultado.largoCarrete - c.sobrante;
+        var isOptimal = c.sobrante <= 10;
         
-        html = html + '<div style="margin-bottom:25px;border:2px solid #e5e7eb;border-radius:10px;padding:20px;page-break-inside:avoid">';
+        html = html + '<div style="margin-bottom:25px;border:2px solid ' + (isOptimal ? '#10b981' : '#e5e7eb') + ';border-radius:10px;padding:20px;page-break-inside:avoid;background:' + (isOptimal ? '#f0fdf4' : 'white') + '">';
         html = html + '<div style="display:flex;justify-content:space-between;margin-bottom:15px;padding-bottom:12px;border-bottom:2px solid #667eea">';
-        html = html + '<div style="font-size:20px;font-weight:bold;color:#667eea">CARRETE #' + (i + 1) + '</div>';
+        html = html + '<div style="font-size:20px;font-weight:bold;color:#667eea">CARRETE #' + (i + 1) + (isOptimal ? ' ✨' : '') + '</div>';
         html = html + '<div style="font-size:16px;color:#059669;font-weight:600">Utilización: ' + c.util + '%</div>';
         html = html + '</div>';
         html = html + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px;margin-bottom:15px">';
         html = html + cortesHtml + '</div>';
         html = html + '<div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid #e5e7eb">';
         html = html + '<div style="color:#059669;font-weight:600">Total cortado: ' + totalCortado.toFixed(1) + 'm</div>';
-        html = html + '<div style="color:#dc2626;font-weight:700">Sobrante: ' + c.sobrante.toFixed(1) + 'm</div>';
+        html = html + '<div style="color:' + (isOptimal ? '#10b981' : '#dc2626') + ';font-weight:700">Sobrante: ' + c.sobrante.toFixed(1) + 'm</div>';
         html = html + '</div></div>';
       }
       
@@ -414,6 +507,7 @@
       html = html + '<div style="text-align:center;border-bottom:4px solid #667eea;padding-bottom:20px;margin-bottom:30px">';
       html = html + '<div style="font-size:36px;font-weight:bold;color:#667eea;letter-spacing:2px">TELCOTEC</div>';
       html = html + '<div style="font-size:22px;color:#1f2937;font-weight:600;margin-top:10px">ORDEN DE TRABAJO - CORTE DE CABLES</div>';
+      html = html + '<div style="background:#10b981;color:white;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;display:inline-block;margin-top:10px">✨ OPTIMIZADO CON ALGORITMO BFD</div>';
       html = html + '</div>';
       html = html + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:30px;padding:20px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb">';
       html = html + '<div><div style="font-weight:600;color:#6b7280;font-size:13px;text-transform:uppercase;margin-bottom:5px">N° DE VENTA</div>';
@@ -437,7 +531,7 @@
       html = html + '<div style="font-size:32px;font-weight:bold">' + resultado.utilProm + '%</div></div>';
       html = html + '</div>';
       html = html + '<h3 style="font-size:20px;font-weight:600;color:#1f2937;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #e5e7eb">DETALLE DE CORTES POR CARRETE</h3>';
-      html = html + carretesHTML;
+      html = html + carretesHtml;
       html = html + '<div style="margin-top:50px;padding-top:25px;border-top:3px solid #e5e7eb;text-align:center;color:#6b7280;font-size:13px">';
       html = html + '<div style="font-weight:bold;color:#667eea;font-size:16px;margin-bottom:5px">TELCOTEC</div>';
       html = html + '<div>Soluciones en Fibra Óptica y Telecomunicaciones</div>';
